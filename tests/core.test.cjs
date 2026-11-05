@@ -8,7 +8,7 @@ test("overload breaks a shoot, never destroys solvability",()=>{
  assert.equal(s.room,1);
  s=apply(s,"shoot");const broken=apply(s,"shoot");
  assert.equal(broken.breaks,1);assert.equal(C.ready(broken),false);
- s=apply(broken,"root");s=apply(s,"shoot");assert.equal(C.ready(s),true);
+ s=apply(broken,"root");s=apply(s,"shoot");s=apply(s,"shoot");assert.equal(C.ready(s),true);
 });
 test("whole game with growth/root/cross and two endings",()=>{
  for(const choice of ["hold","release"]){
