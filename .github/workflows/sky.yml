@@ -1,0 +1,72 @@
+name: Validate the living sky
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: sky-2-check
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and state-machine tests
+        run: |
+          node --check core.js
+          node --check play.js
+          node --test tests/core.test.cjs
+      - name: Install headless Chromium driver
+        run: npm install --no-save --no-package-lock playwright-core
+      - name: Play four chambers on WebGL2
+        run: node tests/browser.test.cjs
+      - name: Save screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sky-2-browser-shots
+          path: |
+            beanstalk2-title.png
+            beanstalk2-first-vine.png
+            beanstalk2-strained-pin.png
+            beanstalk2-keeper.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Package the offline playable site
+        uses: actions/upload-artifact@v4
+        with:
+          name: sol-and-the-beanstalk-2
+          path: |
+            index.html
+            core.js
+            play.js
+            play.css
+          retention-days: 7
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: setup
+        uses: actions/configure-pages@v5
+        continue-on-error: true
+      - name: Pages activation notice
+        if: steps.setup.outcome != 'success'
+        run: echo "::warning title=GitHub Pages not enabled::In this repo's Settings > Pages choose GitHub Actions as the deployment source."
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.setup.outcome == 'success'
+        with:
+          path: .
+      - uses: actions/deploy-pages@v4
+        id: deployment
+        if: steps.setup.outcome == 'success'
