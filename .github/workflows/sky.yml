@@ -8,8 +8,8 @@ permissions:
   pages: write
   id-token: write
 concurrency:
-  group: sky-2-check
-  cancel-in-progress: false
+  group: sky-2-check-fast
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -23,6 +23,17 @@ jobs:
           node --check core.js
           node --check play.js
           node --test tests/core.test.cjs
+      - name: Package portable game before rendering tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: sky-2-local-build
+          path: |
+            index.html
+            core.js
+            play.js
+            play.css
+            tests/browser.test.cjs
+          retention-days: 7
       - name: Install headless Chromium driver
         run: npm install --no-save --no-package-lock playwright-core
       - name: Play four chambers on WebGL2
