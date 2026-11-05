@@ -212,6 +212,8 @@ uniform float mGain,lensK;
 uniform sampler2D camTex;
 uniform vec4 vinePar[${MAXW}];   /* x ceiling y · y growth 0..1 · z phase · w hue */
 uniform float cageOpen;          /* 0 = key caged in vine · 1 = cage withdrawn */
+uniform float uStress,uBurst,uShock,uFov,uTheme,uSlowTime;
+uniform vec3 uShotFrom,uShotTo;
 
 /* ---------- primitives ---------- */
 vec2 rot2(vec2 v,float a){float c=cos(a),s=sin(a);return vec2(c*v.x-s*v.y,s*v.x+c*v.y);}
@@ -393,6 +395,7 @@ vec3 vineNormal(vec3 p,int k){
     e.xyy*vineOnly(p+e.xyy,k)+e.yyx*vineOnly(p+e.yyx,k)+
     e.yxy*vineOnly(p+e.yxy,k)+e.xxx*vineOnly(p+e.xxx,k));}
 vec3 pal(float t){return 0.5+0.5*cos(6.28318*(t+vec3(0.0,0.33,0.67)));}
+vec3 iqPalette(float t){return vec3(.54,.51,.57)+vec3(.43,.39,.34)*cos(6.28318*(vec3(.90,1.01,1.07)*t+vec3(.03,.30,.61)+uTheme));}
 
 /* ---------- boundary images ---------- */
 vec3 eqSample(vec3 n){
@@ -401,12 +404,19 @@ vec3 eqSample(vec3 n){
   return texture(camTex,vec2(1.0-u,v)).rgb;}
 vec3 wallImg(vec3 p){
   int r=nearestRoom(p);
-  return eqSample(normalize(p-roomPos[r]))*roomTintU[r];}
+  vec3 base=eqSample(normalize(p-roomPos[r]))*roomTintU[r];
+  vec3 q=p*.68,cell=floor(q),local=fract(q)-.5;
+  float marker=fract(sin(dot(cell,vec3(17.3,53.4,91.7)))*43758.55);
+  float vein=.5+.5*sin(p.x*1.43+sin(p.y*1.22)+p.z*.75);
+  float seam=pow(1.0-clamp(min(min(abs(local.x),abs(local.y)),abs(local.z))*2.0,0.0,1.0),8.0);
+  return mix(base,iqPalette(vein*.65+marker*.27+p.y*.02),.52)+seam*iqPalette(marker)*.06;
+}
 
 void main(){
   vec2 uv0=(gl_FragCoord.xy-0.5*iRes)/iRes.y;
+  uv0+=uShock*.010*vec2(sin(iTime*63.0),cos(iTime*71.0));
   vec3 x=camP;
-  vec3 rd=normalize(uv0.x*camR+uv0.y*camU+1.5*camF);
+  vec3 rd=normalize(uv0.x*camR+uv0.y*camU+(1.50-uFov*.20)*camF);
   vec3 glow=vec3(0.0), tint=vec3(1.0), accum=vec3(0.0), col=vec3(0.0);
   float trav=0.0, stp=0.05;
   int bnc=0; bool done=false;
@@ -434,6 +444,13 @@ void main(){
         glow+=vec3(1.0,0.80,0.30)*e*e*(0.05+0.045*sin(iTime*4.0))*stp;
       if(sd<dm){dm=sd;hb=k;} }
     float dw=-worldSD(x);
+    if(uBurst<.99){
+      float ds=sdSeg(x,uShotFrom,uShotTo);
+      float front=clamp(1.0-uBurst,0.0,1.0);
+      glow+=iqPalette(iTime*.12+uTheme)*(.025*stp/(ds*ds+.018))*front;
+      float bp=length(x-uShotTo);
+      glow+=vec3(.95,.84,.40)*(.016*stp/(bp*bp+.15))*front;
+    }
     vec4 vg=vinesAll(x);
     if(vg.y>2.5){                        /* blooms breathe light into the room */
       glow+=pal(vg.z+iTime*0.05)*vec3(1.0,0.55,0.9)*(0.006*stp/(vg.x*vg.x+0.05));
@@ -445,14 +462,14 @@ void main(){
       vec3 base;
       float m=vg.y;
       if(m<0.5){                          /* chain: rusted iron that catches the walls */
-        base=vec3(0.30,0.17,0.10)+eqSample(reflect(rd,n))*0.22;
+        base=mix(vec3(.32,.24,.13),vec3(1.00,.12,.09),smoothstep(.52,.90,uStress)*.92)+eqSample(reflect(rd,n))*.13;
       } else if(m<1.5){                   /* stem */
         base=mix(vec3(0.22,0.46,0.16),vec3(0.42,0.36,0.20),0.35)*(0.85+0.3*pal(vinePar[kv].w+x.y*0.04).g);
       } else if(m<2.5){                   /* leaf: green drifting through the spectrum */
         vec3 ps=pal(vinePar[kv].w+vg.z*0.3+x.y*0.06+iTime*0.025);
         base=mix(vec3(0.16,0.55,0.20),ps,0.42);
       } else {                            /* bloom */
-        base=pal(vg.z+iTime*0.05)*vec3(1.0,0.6,0.95)+0.35;
+        base=iqPalette(vg.z+iTime*0.05)*vec3(1.0,0.70,0.95)+0.35;
       }
       float L=0.12; vec3 lc=vec3(0.0);
       for(int k=0;k<nWell;k++){
@@ -583,6 +600,8 @@ void main(){
   }
   if(!done) col=(mode==2)?accum:vec3(0.0);
   col+=glow;
+  col+=uShock*vec3(.62,.055,.03)*.25;
+  col=mix(col,iqPalette(trav*.009+iTime*.012),.07);
   col=col/(col+1.0);
   col=pow(col,vec3(0.4545));
   float vig=1.0-0.35*dot(uv0,uv0);
@@ -1133,7 +1152,7 @@ function compileAndStart(){
     ['iRes','iTime','camP','camR','camU','camF','nWell','mode','keyWell','mGain','lensK','camTex',
      'marchN','glassN','escN',
      'wells','wellCol','wellPar','roomPos','roomPar','roomMod','roomShp','roomTintU','seal',
-     'vinePar','cageOpen']
+     'vinePar','cageOpen','uStress','uBurst','uShock','uFov','uTheme','uSlowTime','uShotFrom','uShotTo']
      .forEach(k=>U[k]=gl.getUniformLocation(prog,k));
     gl.uniform1i(U.camTex,0);
     /* loop bounds — same values as the old constants, now opaque to the compiler */
@@ -1141,6 +1160,7 @@ function compileAndStart(){
     gl.uniform1i(U.glassN,26);
     gl.uniform1i(U.escN,10);
     $('bootStat').textContent='ready — click to enter';
+    shaderReady=true;dispatchEvent(new Event("skyready"));
     requestAnimationFrame(loop);
   }
   if(ext){
@@ -1236,6 +1256,14 @@ function loop(now){
   gl.uniform4f(U.seal,sealV[0],sealV[1],sealV[2],sealV[3]);
   gl.uniform4fv(U.vinePar,vineF);
   gl.uniform1f(U.cageOpen,cageOpenV);
+  gl.uniform1f(U.uStress,runState.pressure);
+  gl.uniform1f(U.uBurst,shotAge);
+  gl.uniform1f(U.uShock,fxShock);
+  gl.uniform1f(U.uFov,flyKick+fxShock*.65);
+  gl.uniform1f(U.uTheme,SkyCore.palette(SEED,CI).shift);
+  gl.uniform1f(U.uSlowTime,1.0/(1.0+runState.pressure*2.0));
+  gl.uniform3fv(U.uShotFrom,shotFrom);
+  gl.uniform3fv(U.uShotTo,shotTo);
   gl.drawArrays(gl.TRIANGLES,0,3);
 
   frames++;
