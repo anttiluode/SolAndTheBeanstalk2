@@ -1,7 +1,8 @@
 <!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Psychedelic Garden</title>
+<title>Sol and the Beanstalk 2 — The Pin Beneath the Sky</title>
+<link rel="stylesheet" href="play.css">
 <style>
   :root{
     --void:#04060b; --ink:#c9d4e0; --amber:#e8b13a; --amber-dim:#8a6d2c;
@@ -161,6 +162,7 @@
 
 <video id="vid" style="display:none" playsinline muted></video>
 
+<script src="core.js"></script>
 <script>
 'use strict';
 /* Do not hype. Do not lie. Just show. */
@@ -589,7 +591,7 @@ void main(){
 
 /* ---------------- boundary texture (webcam + fallback) ---------------- */
 const vid=$('vid');
-let camOK=false, useCam=true;
+let camOK=false, useCam=false;
 const camTex=gl.createTexture();
 gl.activeTexture(gl.TEXTURE0);
 gl.bindTexture(gl.TEXTURE_2D,camTex);
@@ -598,11 +600,8 @@ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
 
-if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-  navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}})
-    .then(st=>{vid.srcObject=st;vid.play();camOK=true;setSrcLabel();})
-    .catch(()=>{useCam=false;camOK=false;setSrcLabel();});
-}else{useCam=false;setSrcLabel();}
+/* Generated light texture only: this game does not request webcam access. */
+useCam=false;setSrcLabel();
 
 const pat=document.createElement('canvas');pat.width=256;pat.height=256;
 const pctx=pat.getContext('2d');
@@ -660,7 +659,13 @@ function uploadBoundary(t){
    the key is touched. Room mass, twist, ripple and the shape pool all
    deepen with the level. Save = 6 numbers. Everything else is hash.
    ===================================================================== */
-let SEED=(Math.random()*4294967296)>>>0;
+const seedArg=(location.hash.match(/seed=([0-9]+)/)||[])[1];
+let SEED=seedArg?(Number(seedArg)>>>0):SkyCore.dailySeed(new Date());
+if(!seedArg)history.replaceState(null,"",location.pathname+location.search+"#seed="+SEED);
+let runState=SkyCore.create(SEED),frameDt=1/60,shotAge=1,shotFrom=[0,0,0],shotTo=[0,0,0],fxShock=0,flyKick=0,travel=null,shaderReady=false;
+try{runState=SkyCore.restore(SEED,JSON.parse(localStorage.getItem("bean-v2-"+SEED)||"null"));}catch(e){}
+function saveRun(){try{localStorage.setItem("bean-v2-"+SEED,JSON.stringify(runState));}catch(e){}}
+
 function rng(i,salt){
   let t=(SEED ^ Math.imul(i|0,2654435761) ^ Math.imul(salt|0,40503))>>>0;
   t=Math.imul(t^(t>>>15),t|1);
@@ -681,7 +686,7 @@ function shapeName(d){
 const SYL=['KA','RA','JA','PIN','TA','VUO','LU','MI','SA','TÄH','TI','KI','VI','HEL','ME','NU','SO','LO'];
 
 /* ------- level geometry: depth(L) rooms per level, cumulative starts ------- */
-function depthOf(L){return Math.min(3+L,10);}          /* L1: 4 rooms … caps at 10 */
+function depthOf(L){return 4;}          /* L1: 4 rooms … caps at 10 */
 function levelStartOf(L){let s=0;for(let k=1;k<L;k++)s+=depthOf(k);return s;}
 function levelOfRoom(i){
   if(i<0)return 1;                                     /* the ante-brain: level 1 rules */
@@ -693,7 +698,7 @@ function rngL(L,salt){return rng(0x5EED+Math.imul(L,131),7000+salt);}
 function keyRoomOf(L){const d=depthOf(L);
   return levelStartOf(L)+1+Math.floor(rngL(L,1)*(d-1));}
 function exitRoomOf(L){return levelStartOf(L)+depthOf(L)-1;}
-function nMoonsOf(L){return Math.min(3+((L-1)>>1),5);}
+function nMoonsOf(L){return 3;}
 
 function roomDef(i){
   const L=levelOfRoom(i);
@@ -706,13 +711,13 @@ function roomDef(i){
   const height=4.5+rng(i,3)*2.5;
   const hy=Math.min(Math.max(height/size,0.45),1.0);
   const an=4+Math.floor(rng(i,13)*9);               /* 4..12 lobes */
-  let aa=L>=2?rng(i,12)*rng(i,12)*Math.min(0.02+L*0.013,0.12):0.0; /* lobes amp */
+  let aa=rng(i,12)*rng(i,12)*Math.min(0.025+L*0.016,0.12); /* lobes amp */
   aa=Math.min(aa,0.5/an);                           /* slope budget: aa*an <= 0.5 */
   let tw=L>=4?Math.pow(rng(i,14),1.5)*Math.min((L-3)*0.10,0.55):0.0; /* ring blend */
   const hue=rng(i,5);
   const turn=(rng(i,6)-0.5)*2.4;                    /* gate heading vs. entry */
   let twist=(rng(i,8)-0.5)*2.0*Math.min(0.015+L*0.011,0.13);
-  let ripA=Math.min(Math.max(L-2,0)*0.06,0.45)*rng(i,9);
+  let ripA=(0.07+Math.min(L*.03,.25))*rng(i,9);
   const ripF=0.5+rng(i,10)*1.2;
   /* GUARANTEE the room centre is deep interior (transition fires at -1.0).
      Pure function of the drawn values, so still deterministic per (SEED,i).
@@ -745,8 +750,8 @@ function moonDef(i,m){ /* moon m of room i — re-dreamed identically every visi
 }
 
 /* ------- game state ------- */
-let LEVEL=1, keyFound=false, maxReached=1;
-let CI=0, dirIn=[Math.sin(rng(0,99)*6.283),Math.cos(rng(0,99)*6.283)];
+let LEVEL=1, keyFound=true, maxReached=1;
+let CI=runState.room, dirIn=[Math.sin(rng(0,99)*6.283),Math.cos(rng(0,99)*6.283)];
 let R={};      /* the three live rooms: def, center, index */
 function rotXZ(v,a){const c=Math.cos(a),s=Math.sin(a);return [c*v[0]-s*v[1],s*v[0]+c*v[1]];}
 function computeDirIn(N){    /* dirIn is a pure function of SEED and N */
@@ -869,11 +874,9 @@ let keyWell=-1, keyPos=null, keyR=0;
 const vineF=new Float32Array(MAXW*4);
 const growth=new Map();
 function growthOf(i){
-  if(!growth.has(i)){
-    const L=levelOfRoom(i);
-    const isKeyRoom=(i===keyRoomOf(L));
-    growth.set(i, isKeyRoom ? 0.12+rng(i,301)*0.12 : 0.18+rng(i,300)*0.5);
-  }
+  const target=i>=0&&i<4?Math.min(1,0.03+runState.shots[i]*0.37):0.04;
+  if(!growth.has(i))growth.set(i,target);
+  else if(i===CI)growth.set(i,growth.get(i)+(target-growth.get(i))*Math.min(1,frameDt*22));
   return growth.get(i);
 }
 let cageOpenV=0, motion=0, flyMotion=0;
@@ -902,7 +905,7 @@ function packWorld(t){
     const A=d.size*0.62, Ay=d.height*0.55;
     for(let m=0;m<nM && w<MAXW;m++,w++){
       const md=moonDef(R.idx[r],m);
-      const isKey=(!keyFound && R.idx[r]===kRoom && m===0);
+      const isKey=(CI===3 && R.idx[r]===CI && m===0);
       let size=(0.45+(md.mass/3.0)*0.75)*P.mGain*d.massK;
       size=Math.min(size,1.6); if(isKey)size=Math.min(size*1.25,1.8);
       /* the key swings wide, off the walking line — you must go to it */
@@ -910,7 +913,7 @@ function packWorld(t){
             ay=isKey?Math.min(md.ay*1.5,0.50):md.ay,
             az=isKey?Math.min(md.az*1.6,0.55):md.az;
       wellsF[w*4+0]=c[0]+A*ax*Math.sin(md.fx*t+md.px);
-      wellsF[w*4+1]=c[1]+Ay*ay*Math.sin(md.fy*t+md.py);
+      wellsF[w*4+1]=c[1]+Ay*ay*Math.sin(md.fy*t+md.py)-(r===1?runState.pressure*1.8:0);
       wellsF[w*4+2]=c[2]+A*az*Math.sin(md.fz*t+md.pz);
       wellsF[w*4+3]=size;
       const cc=isKey?[1.0,0.84,0.36]:moonCol(md.hue);
@@ -929,7 +932,7 @@ function packWorld(t){
   }
   /* the seal: a red membrane in the corridor after the level's last room */
   const eRoom=exitRoomOf(LEVEL);
-  if(!keyFound && CI===eRoom){
+  if(!SkyCore.ready(runState) && CI<3){
     sealV=[(R.pos[1][0]+R.pos[2][0])*0.5,(R.pos[1][1]+R.pos[2][1])*0.5,
            (R.pos[1][2]+R.pos[2][2])*0.5,2.6];
   }else sealV=[0,0,0,-1];
@@ -938,6 +941,7 @@ function packWorld(t){
 
 /* ---------------- camera & input (mouse INVERTED, as requested) ------------ */
 let camP=[0,0,0], yaw=0, pitch=0;
+dirIn=computeDirIn(CI);
 function faceForwardGate(){yaw=Math.atan2(R.dirOut[0],R.dirOut[1]);pitch=0;}
 rebuildChain();faceForwardGate();
 const keys={};
@@ -973,7 +977,7 @@ function tryMove(nx,ny,nz){
 /* ---------------- music: game1..4.mp3 next to this file, endless ---------- */
 const TRACKS=['game1.mp3','game2.mp3','game3.mp3','game4.mp3','game5.mp3',
               'game6.mp3','game7.mp3','game8.mp3','game9.mp3','game10.mp3'];
-let musicOn=true, musicStarted=false, mIdx=Math.floor(Math.random()*TRACKS.length), mFails=0;
+let musicOn=false, musicStarted=false, mIdx=Math.floor(Math.random()*TRACKS.length), mFails=0;
 const audio=(typeof Audio!=='undefined')?new Audio():null;
 if(audio){
   audio.preload='auto'; audio.volume=0.5;
@@ -1073,7 +1077,7 @@ if(matchMedia('(prefers-reduced-motion: reduce)').matches){
   idle=0;$('bIdle').classList.remove('on');$('bIdle').textContent='Idle spin: off';
 }
 /* try to resume a local autosave silently */
-try{const c=localStorage.getItem('psyGardenSave');
+try{const c=null; /* no legacy save imported */
   if(c){applySave(JSON.parse(atob(c)));
     $('stat').textContent='resumed · level '+LEVEL+' room #'+CI;}
 }catch(e){/* fresh brain */}
@@ -1150,12 +1154,16 @@ function compileAndStart(){
 /* ---------------- loop ---------------- */
 let t0=performance.now(),simT=0,frames=0,fpsT=t0;
 function loop(now){
-  const dt=Math.min((now-t0)/1000,0.05);t0=now;
+  const dt=Math.min((now-t0)/1000,0.05);t0=now;frameDt=dt;
+  shotAge=Math.min(1,shotAge+dt*2.7);
+  fxShock=Math.max(0,fxShock-dt*1.9);
+  const movingFast=(keys.ShiftLeft||keys.ShiftRight)&&(keys.KeyW||keys.KeyD||keys.KeyA||keys.KeyS);
+  flyKick+=((movingFast?1:0)-flyKick)*Math.min(1,dt*5);
   if(idle)simT+=dt; else simT+=dt*0.06;
 
   const cp=Math.cos(pitch),sp=Math.sin(pitch),cy=Math.cos(yaw),sy=Math.sin(yaw);
   const F=[sy*cp,sp,cy*cp], Rv=[cy,0,-sy], Uv=[-sy*sp,cp,-cy*sp];
-  const spd=(keys.ShiftLeft||keys.ShiftRight?14:6)*dt;
+  const spd=(keys.ShiftLeft||keys.ShiftRight?16:9)*dt;
   let mx=0,my=0,mz=0;
   if(keys.KeyW){mx+=F[0]*spd;my+=F[1]*spd;mz+=F[2]*spd;}
   if(keys.KeyS){mx-=F[0]*spd;my-=F[1]*spd;mz-=F[2]*spd;}
@@ -1163,11 +1171,17 @@ function loop(now){
   if(keys.KeyA){mx-=Rv[0]*spd;mz-=Rv[2]*spd;}
   if(keys.KeyE)my+=spd;
   if(keys.KeyQ)my-=spd;
-  if(mx||my||mz)tryMove(camP[0]+mx,camP[1]+my,camP[2]+mz);
+  if(travel){
+    travel.t=Math.min(1,travel.t+dt*1.65);
+    const t=travel.t*travel.t*(3-2*travel.t);
+    camP=travel.a.map((v,j)=>v+(travel.b[j]-v)*t);
+    if(travel.t>=1){travel=null;advance();camP=[0,0,0];dispatchEvent(new Event("skychange"));}
+  }else if(mx||my||mz)tryMove(camP[0]+mx,camP[1]+my,camP[2]+mz);
 
   /* room transition: deep inside next -> dream forward; inside prev -> re-dream back */
-  if(roomSDJ(camP[0],camP[1],camP[2],2)<-1.0)advance();
-  else if(roomSDJ(camP[0],camP[1],camP[2],0)<-1.0)retreat();
+  if(!travel && CI<3 && SkyCore.ready(runState) && roomSDJ(camP[0],camP[1],camP[2],2)<-1.0){
+    const result=SkyCore.act(runState,"cross");if(result.ok){runState=result.state;advance();saveRun();dispatchEvent(new Event("skychange"));}
+  }
 
   uploadBoundary(simT);
   const nW=packWorld(simT);
@@ -1177,9 +1191,8 @@ function loop(now){
   const moving=!!(mx||my||mz);
   flyMotion+= ((moving?1:0)-flyMotion)*Math.min(1,dt*2.5);
   const feed=Math.max(motion, flyMotion*0.55);
-  const gNow=growthOf(CI);
-  growth.set(CI, Math.min(1.0, gNow + dt*(0.0025 + 0.045*feed)));
-  for(const j of [CI-1,CI+1]) growth.set(j, Math.min(1.0, growthOf(j)+dt*0.0015));
+  // The only thing that grows vines is the player shooting them.
+  growthOf(CI);
   const kRoom=keyRoomOf(LEVEL);
   const gK=growthOf(kRoom);
   const targetOpen=Math.max(0,Math.min(1,(gK-0.82)/0.18));
@@ -1187,7 +1200,7 @@ function loop(now){
   if(keyFound) cageOpenV=1;
 
   /* key pickup: touch the gold crystal — once its cage has opened */
-  if(!keyFound && keyPos){
+  if(false && !keyFound && keyPos){
     const d=Math.hypot(camP[0]-keyPos[0],camP[1]-keyPos[1],camP[2]-keyPos[2]);
     if(d<keyR+2.2 && cageOpenV<0.97 && !(loop.warned>now-6000)){
       loop.warned=now;
