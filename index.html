@@ -86,6 +86,49 @@
 
 <canvas id="gl"></canvas>
 
+<div id="game-hud">
+  <header class="game-top">
+    <div class="brand"><div class="eyebrow">SOL &amp; THE BEANSTALK / II</div><h1>The Pin Beneath the Sky</h1><div id="chapter">01 · THE FIRST THREAD</div></div>
+    <div class="toolbar">
+      <button id="b-daily">DAILY SEED</button><button id="b-photo">PHOTO <kbd>P</kbd></button>
+      <button id="b-sound" aria-pressed="false">♫ SOUND OFF</button><button id="b-new">NEW WORLD</button>
+    </div>
+  </header>
+  <aside id="brief" class="glass"><div class="eyebrow">THE NEXT CHAMBER</div><strong id="roomname"></strong><p id="roomstory"></p><div id="mission"></div></aside>
+  <aside id="pin-status" class="glass" aria-live="polite">
+    <div class="eyebrow">THERE IS ONE PIN ABOVE YOU</div><div class="pin-row"><span>SHARED LOAD</span><b id="pressure">12%</b></div>
+    <div class="stress"><div id="stress-fill"></div></div><p id="pin-message">The first chain is quiet.</p>
+    <div class="roots">ROOT PODS <b id="root-count">2</b><span>·</span><span id="grown">0 / 1 VINES</span></div>
+  </aside>
+  <div id="aim" aria-hidden="true">✧<small>SEEDS SEEK SUPPORT</small></div>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <div id="bottom-actions">
+    <button id="fire" class="action primary"><span class="sigil">✺</span><span><b>FIRE A VINE</b><small>Grows the moment it lands</small></span><kbd>SPACE</kbd></button>
+    <button id="root" class="action"><span class="sigil">❉</span><span><b>ROOT THE PIN</b><small>Share the chain's burden</small></span><kbd>R</kbd></button>
+    <button id="follow" class="action"><span class="sigil">↗</span><span><b>FOLLOW THE VINE</b><small>Launch into the next chamber</small></span><kbd>F</kbd></button>
+  </div>
+  <div class="foot">WASD FLY · Q / E UP / DOWN · DRAG LOOK · SHIFT BOOST · CLICK / SPACE SHOOT · R ROOT · F FOLLOW</div>
+  <div id="touch-pad"><button data-key="KeyW">▲</button><button data-key="KeyA">◀</button><button data-key="KeyS">▼</button><button data-key="KeyD">▶</button><button data-key="KeyQ">DOWN</button><button data-key="KeyE">UP</button></div>
+</div>
+<div id="flash"></div>
+<div id="intro" class="screen visible" role="dialog" aria-modal="true" aria-labelledby="intro-title"><div class="storyglass">
+  <div class="eyebrow">A THREE-MINUTE LIVING FAIRY TALE</div><div class="crest">✺</div>
+  <h2 id="intro-title">The Pin<br><em>Beneath the Sky</em></h2>
+  <p>Every vine can climb a chain.<br>But every chain hangs from <strong>one small pin.</strong></p>
+  <p class="whisper">Shoot a path. Hear the metal strain. Grow a root to share its weight. Find the keeper above the clouds.</p>
+  <button id="begin" disabled>PREPARING CRYSTAL WORLD…</button>
+  <div class="subtle" id="loader">Compiling the raymarched garden once. The first visit may take longer.</div>
+</div></div>
+<div id="ending" class="screen" hidden role="dialog" aria-modal="true" aria-labelledby="end-title"><div class="storyglass">
+  <div class="eyebrow">THE GIANT DOES NOT FIGHT YOU</div><div class="crest">❉</div>
+  <h2 id="end-title">Find what<br><em>carries the load.</em></h2>
+  <p>He has held the old chain so long that metal has grown through his hands. He asks nothing of you—except what should happen next.</p>
+  <div id="end-choices"><button id="choice-hold">❉ ROOT THE WORLD <small>Share the weight.</small></button><button id="choice-release">✧ RELEASE THE PIN <small>Let the sky change.</small></button></div>
+  <p id="epilogue" hidden></p><button id="another" hidden>GROW ANOTHER SKY ↗</button>
+  <div class="subtle" id="run-summary"></div>
+</div></div>
+
+
 <div id="boot">
   <div class="big">PSYCHEDELIC GARDEN</div>
   <div class="sub">the brain's chambers have been planted. every moon hangs on a chain,<br>
@@ -163,6 +206,7 @@
 <video id="vid" style="display:none" playsinline muted></video>
 
 <script src="core.js"></script>
+<script src="play.js"></script>
 <script>
 'use strict';
 /* Do not hype. Do not lie. Just show. */
@@ -1266,6 +1310,7 @@ function loop(now){
   gl.uniform3fv(U.uShotTo,shotTo);
   gl.drawArrays(gl.TRIANGLES,0,3);
 
+  window.SkyEngine?.framePhoto();
   frames++;
   if(now-fpsT>400){
     $('fps').textContent=Math.round(frames*1000/(now-fpsT))+' fps';
@@ -1281,6 +1326,43 @@ function loop(now){
   }
   requestAnimationFrame(loop);
 }
+
+
+/* Public gameplay interface. Visuals and geometry stay inside this engine. */
+window.SkyEngine={
+ get ready(){return shaderReady;},
+ get state(){return runState;},
+ get seed(){return SEED;},
+ get room(){return CI;},
+ get frame(){return {position:[...camP],fps:$("fps").textContent};},
+ setKey(code,on){keys[code]=on?1:0;},
+ shootTarget(){const offset=3*4;return [wellsF[offset],wellsF[offset+1],wellsF[offset+2]];},
+ dispatch(verb){
+  const result=SkyCore.act(runState,verb);
+  if(!result.ok)return result;
+  runState=result.state;
+  if(verb==="shoot"){
+    shotAge=0;fxShock=result.event==="snap"?1:.21;
+    shotFrom=[...camP];shotTo=this.shootTarget();
+  }else if(verb==="root"){fxShock=.10;}
+  else if(verb==="cross" && result.event==="travel"){
+    travel={t:0,a:[...camP],b:[...R.pos[2]]};
+  }
+  saveRun();dispatchEvent(new CustomEvent("skyaction",{detail:result}));
+  return result;
+ },
+ framePhoto(){
+  if(!window.skyPhotoRequested)return;
+  window.skyPhotoRequested=false;
+  cvs.toBlob(blob=>{
+   if(!blob)return;
+   const u=URL.createObjectURL(blob),a=document.createElement("a");
+   a.href=u;a.download="beanstalk2-"+SEED+"-room"+(CI+1)+".png";a.click();
+   setTimeout(()=>URL.revokeObjectURL(u),1500);
+  },"image/png");
+ },
+ resetSeed(seed){location.hash="seed="+(seed>>>0);location.reload();}
+};
 
 /* let the boot screen paint before the driver chews on the shader.
    the counter is honest elapsed time — compile progress isn't queryable */
