@@ -652,6 +652,20 @@ void main(){
   O=vec4(col*vig,1.0);
 }`;
 
+/* Fast geometry-independent shader ONLY for the CI browser control test.
+   Normal users always get FRAG above. It is not a screenshot substitute. */
+const FRAG_CI=`#version 300 es
+precision highp float;
+out vec4 O;
+uniform vec2 iRes;
+uniform float iTime;
+uniform float uStress;
+void main(){
+ vec2 p=(gl_FragCoord.xy-.5*iRes)/iRes.y;
+ float y=sin(p.x*6.0+iTime*.18)*.05;
+ O=vec4(.11+.08*p.y,.22+y,.30+.08*min(1.,uStress),1.);
+}`;
+
 /* ---------------- boundary texture (webcam + fallback) ---------------- */
 const vid=$('vid');
 let camOK=false, useCam=false;
@@ -1179,7 +1193,7 @@ let prog=null,U={};
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);
   gl.compileShader(s);return s;}
 function compileAndStart(){
-  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,FRAG);
+  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,location.search.includes("ci=1")?FRAG_CI:FRAG);
   prog=gl.createProgram();
   gl.attachShader(prog,vs);gl.attachShader(prog,fs);
   gl.linkProgram(prog);
