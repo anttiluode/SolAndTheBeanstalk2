@@ -34,7 +34,7 @@ The world seed is in the URL fragment (#seed=NUMBER); each seed has a separate l
 - **core.js:** Pure, deterministic gameplay. Shoot/root/cross, four-room graph, warning/overload thresholds, recoverable snaps, root inventory, endings and save validation.
 - **play.js:** Story UI, keyboard and touch input, drone whose frequency decreases as the pin loads, original pentatonic chimes, screenshot and sharing controls.
 - **play.css:** Responsive HUD showing a load that matters.
-- **tests:** Node rules plus a real Chromium WebGL2 playthrough, captured by GitHub Actions.
+- **tests:** Deterministic Node rule tests run on every push. An optional Chromium integration test (manual workflow dispatch) exercises gameplay with an explicitly simplified CI-only shader. It does **not** establish the performance or appearance of the normal raymarched renderer.
 
 This is a separate game whose engine descends directly from the original [PsychedelicGarden](https://github.com/anttiluode/PsychedelicGarden). Visual rules borrow the look of CrystalMoon without incorporating its full Clockfield simulation. No claim is made that the pin tension is a physical engineering model.
 
@@ -54,3 +54,5 @@ Visit http://localhost:8000 on a WebGL2 browser. No runtime dependencies, artwor
 The full raymarcher is computationally demanding; frame rate varies by GPU. This release is a finite four-room prototype, not a large procedurally generated open world, an independent level graph, a structural physics simulator or a commercial game.
 
 **Find what carries the load.**
+
+**Validation status (Nov 5):** All six gameplay rules and the embedded JavaScript syntax pass local checks. The full PsychedelicGarden-derived shader could not be fully playtested here: the local browser blocks URL loading, and software-rendered CI runs were excessively slow. Normal GPU visual performance remains unverified until a real browser/hardware playtest.
