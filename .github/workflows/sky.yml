@@ -8,7 +8,7 @@ permissions:
   pages: write
   id-token: write
 concurrency:
-  group: sky-2-check-fast
+  group: sky-2-check
   cancel-in-progress: true
 jobs:
   verify:
