@@ -4,9 +4,9 @@ const assert=require("node:assert/strict"),{chromium}=require("playwright-core")
  const exe=["/usr/bin/google-chrome","/usr/bin/google-chrome-stable","/usr/bin/chromium","/usr/bin/chromium-browser"].find(fs.existsSync);
  if(!exe)throw Error("A Chromium executable is needed for the browser test.");
  const browser=await chromium.launch({headless:true,executablePath:exe,args:["--no-sandbox","--enable-webgl","--use-gl=angle","--use-angle=swiftshader","--enable-unsafe-swiftshader"]});
- const page=await browser.newPage({viewport:{width:1440,height:900},deviceScaleFactor:1});
+ const page=await browser.newPage({viewport:{width:960,height:600},deviceScaleFactor:1});
  const errors=[];page.on("pageerror",e=>errors.push(e.message));page.on("console",m=>{if(m.type()==="error")errors.push(m.text())});
- await page.goto("file://"+path.join(__dirname,"..","index.html")+"#seed=152734",{waitUntil:"domcontentloaded"});
+ await page.goto("file://"+path.join(__dirname,"..","index.html")+"?quality=low#seed=152734",{waitUntil:"domcontentloaded"});
  await page.locator("#begin:enabled").waitFor({timeout:100000});
  const initial=await page.evaluate(()=>({ready:SkyEngine.ready,webgl:!!document.getElementById("gl").getContext("webgl2"),shaderError:document.getElementById("boot").classList.contains("err")}));
  assert.deepEqual(initial,{ready:true,webgl:true,shaderError:false});
