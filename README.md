@@ -1,0 +1,56 @@
+# Sol & the Beanstalk 2 — The Pin Beneath the Sky
+
+**[Play the browser build](https://anttiluode.github.io/SolAndTheBeanstalk2/)** · [Original PsychedelicGarden](https://github.com/anttiluode/PsychedelicGarden) · [First Sol and the Beanstalk](https://github.com/anttiluode/SolAndTheBeanStalk)
+
+A short experimental **3D vine-shooting game** in which every route helps you reach higher and places pressure on a shared support that may snap. This version is derived from the **PsychedelicGarden WebGL2 raymarch engine**, not the first game's triangle-mesh renderer. It retains psychedelic crystal chambers, hanging chains, animated moons and vine helices, but replaces passive waiting with immediate seed shots and an audible, visible support economy.
+
+There are four small chapters:
+1. **The First Thread:** shoot one vine, see the growth instantly, and follow it to the next chamber.
+2. **The Borrowed Chain:** vines put load on a distant pin. The chain sags, glows red and hums lower as you overburden it. Grow a root to share its burden; reckless planting can tear a vine loose.
+3. **The Crystal Lung:** repair a stressed support inside the organic glass.
+4. **The Giant's Pin:** meet the keeper and decide whether to root the world or release the old chain. Two different story endings.
+
+Designed for a few minutes of exploratory play, with no deliberate waiting periods. Experienced players may finish faster. Breaking a vine is recoverable and never removes the ability to finish the run.
+
+## Controls
+
+| Action | Input |
+| --- | --- |
+| Shoot vine | **Space** or click the world / FIRE A VINE |
+| Stabilize support | **R** / ROOT THE PIN |
+| Travel to next room | **F** / FOLLOW THE VINE |
+| Fly around / up / down | WASD / E / Q |
+| Look, fast flight | Drag / hold Shift |
+| Screenshot | **P** / PHOTO |
+| New randomized map | NEW WORLD |
+| Share today's seed | DAILY SEED |
+| Touch | On-screen action buttons, directional pad, and drag-to-look |
+
+The world seed is in the URL fragment (#seed=NUMBER); each seed has a separate localStorage save. DAILY SEED is computed from the current UTC date.
+
+## The technology
+
+- **index.html:** PsychedelicGarden-derived shader, with real-time raymarching, shiny moons, chained vines, cosine palettes, crystal seam variation, near-miss glow, screen-shake, FOV kick, guided seed-trail glow and strain-dependent visual changes.
+- **core.js:** Pure, deterministic gameplay. Shoot/root/cross, four-room graph, warning/overload thresholds, recoverable snaps, root inventory, endings and save validation.
+- **play.js:** Story UI, keyboard and touch input, drone whose frequency decreases as the pin loads, original pentatonic chimes, screenshot and sharing controls.
+- **play.css:** Responsive HUD showing a load that matters.
+- **tests:** Node rules plus a real Chromium WebGL2 playthrough, captured by GitHub Actions.
+
+This is a separate game whose engine descends directly from the original [PsychedelicGarden](https://github.com/anttiluode/PsychedelicGarden). Visual rules borrow the look of CrystalMoon without incorporating its full Clockfield simulation. No claim is made that the pin tension is a physical engineering model.
+
+## Local run
+
+From the repository directory, run a Python static server:
+
+    python -m http.server 8000
+
+Visit http://localhost:8000 on a WebGL2 browser. No runtime dependencies, artwork, webcam, service, user account or external audio files are required.
+
+**Automated tests:**
+
+    node --check play.js
+    node --test tests/core.test.cjs
+
+The full raymarcher is computationally demanding; frame rate varies by GPU. This release is a finite four-room prototype, not a large procedurally generated open world, an independent level graph, a structural physics simulator or a commercial game.
+
+**Find what carries the load.**
