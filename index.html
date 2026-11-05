@@ -1148,7 +1148,7 @@ updateLevelHud();
 
 /* ---------------- resize ---------------- */
 function resize(){
-  const dpr=Math.min(devicePixelRatio||1,1.35);
+  const dpr=Math.min(devicePixelRatio||1,location.search.includes('quality=low')?.58:(innerWidth<760?.70:.90));
   cvs.width=Math.floor(innerWidth*dpr);
   cvs.height=Math.floor(innerHeight*dpr);
   gl.viewport(0,0,cvs.width,cvs.height);
@@ -1200,9 +1200,9 @@ function compileAndStart(){
      .forEach(k=>U[k]=gl.getUniformLocation(prog,k));
     gl.uniform1i(U.camTex,0);
     /* loop bounds — same values as the old constants, now opaque to the compiler */
-    gl.uniform1i(U.marchN,180);
-    gl.uniform1i(U.glassN,26);
-    gl.uniform1i(U.escN,10);
+    gl.uniform1i(U.marchN,location.search.includes('quality=low')?70:118);
+    gl.uniform1i(U.glassN,16);
+    gl.uniform1i(U.escN,7);
     $('bootStat').textContent='ready — click to enter';
     shaderReady=true;dispatchEvent(new Event("skyready"));
     requestAnimationFrame(loop);
