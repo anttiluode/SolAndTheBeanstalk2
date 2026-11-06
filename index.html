@@ -218,8 +218,17 @@ const cvs=$('gl'), boot=$('boot');
 function bootErr(t){
   if(window.dreamTick){clearInterval(window.dreamTick);window.dreamTick=null;}
   boot.classList.add('err');boot.classList.remove('gone');
-  boot.innerHTML='<div class="big">It broke — here is why</div><div class="sub">'
-    +String(t).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])).slice(0,600)+'</div>';
+  const message=String(t).slice(0,500);
+  boot.innerHTML='<div class="big">The graphics could not start</div><div class="sub">'
+    +message.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))+'</div>';
+  // This intro is above the old boot element; display the error where the player can see it.
+  const label=document.getElementById('loader'),btn=document.getElementById('begin');
+  if(label)label.textContent='Graphics error: '+message;
+  if(btn){
+    btn.disabled=false;
+    btn.textContent='TRY COMPATIBILITY GRAPHICS';
+    btn.addEventListener('click',()=>{location.href=location.pathname+'?safe=1'+location.hash;},{once:true});
+  }
 }
 window.onerror=(m,s,l,c,e)=>{bootErr((e&&e.stack)||m+' @ line '+l);};
 window.addEventListener('unhandledrejection',e=>bootErr(e.reason));
@@ -1193,8 +1202,10 @@ function updateResonance(){
 let prog=null,U={};
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);
   gl.compileShader(s);return s;}
-function compileAndStart(){
-  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,location.search.includes("ci=1")?FRAG_CI:(location.search.includes("legacy=1")?FRAG:window.SKY_FAST_FRAGMENT));
+function compileAndStart(forceSafe=false){
+  const safe=forceSafe||location.search.includes("ci=1")||location.search.includes("safe=1");
+  const source=safe?FRAG_CI:(location.search.includes("legacy=1")?FRAG:window.SKY_FAST_FRAGMENT);
+  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,source);
   prog=gl.createProgram();
   gl.attachShader(prog,vs);gl.attachShader(prog,fs);
   gl.linkProgram(prog);
@@ -1204,7 +1215,10 @@ function compileAndStart(){
     if(!gl.getProgramParameter(prog,gl.LINK_STATUS)){
       const log=(gl.getShaderInfoLog(fs)||'')+' '+(gl.getShaderInfoLog(vs)||'')
                +' '+(gl.getProgramInfoLog(prog)||'');
-      bootErr('Shader failed: '+log.trim());
+      if(!safe){
+        console.warn('Primary shader failed, falling back to compatibility mode:',log);
+        compileAndStart(true);
+      }else bootErr('Shader failed even in compatibility mode: '+log.trim());
       return;
     }
     gl.useProgram(prog);
@@ -1219,13 +1233,22 @@ function compileAndStart(){
     gl.uniform1i(U.glassN,16);
     gl.uniform1i(U.escN,7);
     $('bootStat').textContent='ready — click to enter';
-    shaderReady=true;dispatchEvent(new Event("skyready"));
+    shaderReady=true;
+    if(safe){
+      const loader=document.getElementById('loader');
+      if(loader)loader.textContent='Compatibility graphics are active; the game is ready.';
+    }
+    dispatchEvent(new Event("skyready"));
     requestAnimationFrame(loop);
   }
   if(ext){
+    const startedAt=performance.now();
     (function poll(){
       if(gl.getProgramParameter(prog,ext.COMPLETION_STATUS_KHR))finish();
-      else requestAnimationFrame(poll);
+      else if(performance.now()-startedAt>7000){
+        if(!safe){console.warn('Primary shader timed out: switching to compatibility renderer');compileAndStart(true);}
+        else bootErr('Graphics initialization timed out. Check browser hardware acceleration.');
+      }else requestAnimationFrame(poll);
     })();
   }else finish();
 }
