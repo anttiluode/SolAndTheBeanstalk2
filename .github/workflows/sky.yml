@@ -22,6 +22,7 @@ jobs:
         run: |
           node --check core.js
           node --check play.js
+          node --check fast-shader.js
           node --test tests/core.test.cjs
       - name: Check embedded renderer script syntax
         run: |
@@ -35,6 +36,7 @@ jobs:
             core.js
             play.js
             play.css
+            fast-shader.js
             tests/browser.test.cjs
           retention-days: 7
   browser:
