@@ -1,63 +1,61 @@
-# Sol & the Beanstalk 2 — The Pin Beneath the Sky
+# Sol & the Beanstalk 2 — Storm Climber
 
-**[Play the browser build](https://anttiluode.github.io/SolAndTheBeanstalk2/)** · [Original PsychedelicGarden](https://github.com/anttiluode/PsychedelicGarden) · [First Sol and the Beanstalk](https://github.com/anttiluode/SolAndTheBeanStalk)
+**[Play Storm Climber](https://anttiluode.github.io/SolAndTheBeanstalk2/)** · **[Play the original story](https://anttiluode.github.io/SolAndTheBeanstalk2/story.html)**
 
-A short experimental **3D vine-shooting game** in which every route helps you reach higher and places pressure on a shared support that may snap. This version is derived from the **PsychedelicGarden WebGL2 raymarch engine**, not the first game's triangle-mesh renderer. It retains psychedelic crystal chambers, hanging chains, animated moons and vine helices, but replaces passive waiting with immediate seed shots and an audible, visible support economy.
+An endless, third-person 3D survival climb. A storm rises beneath a floating garden. Double jump, dash and shoot a living vine to keep ahead of it. One fall ends the run. One key starts another.
 
-There are four small chapters:
-1. **The First Thread:** shoot one vine, see the growth instantly, and follow it to the next chamber.
-2. **The Borrowed Chain:** vines put load on a distant pin. The chain sags, glows red and hums lower as you overburden it. Grow a root to share its burden; reckless planting can tear a vine loose.
-3. **The Crystal Lung:** repair a stressed support inside the organic glass.
-4. **The Giant's Pin:** meet the keeper and decide whether to root the world or release the old chain. Two different story endings.
+No install, account, downloads from CDNs, runtime libraries or backend. The default game uses small native WebGL2 shaders and triangle meshes, inspired by the [first Sol & the Beanstalk](https://github.com/anttiluode/SolAndTheBeanStalk), so it does not wait for the old crystal raymarcher to compile.
 
-Designed for a few minutes of exploratory play, with no deliberate waiting periods. Experienced players may finish faster. Breaking a vine is recoverable and never removes the ability to finish the run.
+## How to play
 
-## Controls
+- **Climb:** follow the floating islands upward. The flower with a reticle is your next grapple target.
+- **Catch and release:** hold **E** or left mouse to reel toward that flower. Release above an island. Land to replenish your vine, jumps and dash.
+- **Keep your flow:** quick landings on new islands increase your multiplier, up to 8×. Golden side islands hold five crystals, but a detour costs time.
+- **Read the garden:** orange islands crumble after landing; some islands drift sideways; mint flowers bounce you upward. Golden arches offer one of three upgrades every twelve islands.
+- **Escape:** the storm wakes after four seconds and gets faster as you climb. Touch it and the run ends. **R** retries the same world immediately.
 
-| Action | Input |
+The route continues beyond the original chapters through four repeating regional palettes with fresh deterministic platform layouts. Difficulty increases to a cap. Only nearby islands and their GPU meshes stay in memory. There is no final island or victory screen.
+
+| Action | Controls |
 | --- | --- |
-| Shoot vine | **Space** or click the world / FIRE A VINE |
-| Stabilize support | **R** / ROOT THE PIN |
-| Travel to next room | **F** / FOLLOW THE VINE |
-| Fly around / up / down | WASD / E / Q |
-| Look, fast flight | Drag / hold Shift |
-| Screenshot | **P** / PHOTO |
-| New randomized map | NEW WORLD |
-| Share today's seed | DAILY SEED |
-| Touch | On-screen action buttons, directional pad, and drag-to-look |
+| Move | WASD / arrow keys, relative to the camera |
+| Jump, then jump again in the air | Space |
+| Directional air dash | Shift (forward if no direction is held) |
+| Grapple highlighted flower | Hold E / left mouse; release to launch |
+| Look / zoom | Hold right mouse and drag / wheel |
+| Pause / resume | Esc / Pause button |
+| Instant retry | R |
+| Choose an upgrade | Click a card / 1, 2, 3 |
+| Touch | Direction pad, Jump, Dash and Hold Vine; drag the world to look |
 
-The world seed is in the URL fragment (#seed=NUMBER); each seed has a separate localStorage save. DAILY SEED is computed from the current UTC date.
+Focus loss and hidden tabs pause the run. Upgrade choices also pause the storm. Sound is synthesized locally and can be switched off. High scores and height records are saved in this browser; blocked storage does not prevent playing. Upgrades last for one run only. **Today's Challenge** uses a common UTC daily seed; **Copy Challenge** shares the current seed and your result, without an online leaderboard.
 
-## The technology
+## Run locally
 
-- **index.html:** Keeps the original PsychedelicGarden crystal engine (available with `?legacy=1`) and the game camera/geometry logic. Normal startup now uses `fast-shader.js`, a far cheaper raymarcher with organic cave walls, crystals, chains, instant vine helixes, stress glow, atmospheric fog and colour palettes. Shader errors automatically fall back to a minimal compatibility renderer and are shown visibly rather than leaving the start button frozen.
-- **fast-shader.js:** Default renderer; compiled and linked successfully with OpenGL ES 3.2 Mesa. It reduces the heavy multipass reflections for reliability.
-- **core.js:** Pure, deterministic gameplay. Shoot/root/cross, four-room graph, warning/overload thresholds, recoverable snaps, root inventory, endings and save validation.
-- **play.js:** Story UI, keyboard and touch input, drone whose frequency decreases as the pin loads, original pentatonic chimes, screenshot and sharing controls.
-- **play.css:** Responsive HUD showing a load that matters.
-- **tests:** Deterministic Node rule tests run on every push. An optional Chromium integration test (manual workflow dispatch) exercises gameplay with an explicitly simplified CI-only shader. It does **not** establish the performance or appearance of the normal raymarched renderer.
+Open `index.html` directly, or serve the directory:
 
-This is a separate game whose engine descends directly from the original [PsychedelicGarden](https://github.com/anttiluode/PsychedelicGarden). Visual rules borrow the look of CrystalMoon without incorporating its full Clockfield simulation. No claim is made that the pin tension is a physical engineering model.
+```sh
+python -m http.server 8000
+```
 
-## Local run
+Then visit http://localhost:8000. Use a browser with WebGL2 and hardware acceleration enabled. If WebGL is unavailable, a visible error explains how to recover.
 
-From the repository directory, run a Python static server:
+## Code and checks
 
-    python -m http.server 8000
+- `climb-core.js`: deterministic platform generation, movement, collision, storm, scoring, upgrades and bounded live state; runs in Node and the browser.
+- `climb-render.js`: streamed geometry, explicit GPU resource disposal, camera-relative coordinates, avatar, vine and storm.
+- `climb.js`: fixed-step loop, keyboard/touch input, pause, records, sound and menus.
+- `climb.css`, `index.html`: responsive interface.
+- `story.html`, `core.js`, `play.js`, `play.css`, `fast-shader.js`: retained finite story and its original renderer. `story.html?legacy=1` retains the expensive experimental crystal shader.
 
-Visit http://localhost:8000 on a WebGL2 browser. No runtime dependencies, artwork, webcam, service, user account or external audio files are required.
+```sh
+node --test tests/core.test.cjs tests/startup.test.cjs tests/climb.test.cjs
+npm install --no-save --no-package-lock playwright@1.56.1
+CHROME_BIN=/usr/bin/google-chrome node tests/climb-browser.cjs
+```
 
-**Automated tests:**
+`CHROME_BIN` can point to your Chromium/Chrome executable; the test defaults to `/usr/bin/chromium`. Browser tests load **the production shader**, exercise actual keyboard/touch controls and save screenshots under `.artifacts/`. GitHub Actions runs both suites before publishing Pages. The old optional story browser test remains `tests/browser.test.cjs` and uses its original CI-only lightweight shader; it is not part of the new survival test.
 
-    node --check play.js
-    node --test tests/core.test.cjs
+Automated tests verify mechanics and rendering; difficulty and replay appeal still need human playtesting. This is a small procedural browser game, not a claim of an infinitely detailed world or guaranteed addictive gameplay.
 
-The full raymarcher is computationally demanding; frame rate varies by GPU. This release is a finite four-room prototype, not a large procedurally generated open world, an independent level graph, a structural physics simulator or a commercial game.
-
-**Find what carries the load.**
-
-**Validation status (Nov 5):** All six gameplay rules and the embedded JavaScript syntax pass local checks. The full PsychedelicGarden-derived shader could not be fully playtested here: the local browser blocks URL loading, and software-rendered CI runs were excessively slow. Normal GPU visual performance remains unverified until a real browser/hardware playtest.
-
-## Startup fix (November 6, 2026)
-
-The first published version could remain on **PREPARING CRYSTAL WORLD…** because the original multi-bounce shader took excessively long to compile on some drivers. The ordinary page now loads a smaller WebGL2 raymarcher by default, with a 7-second asynchronous compile watchdog and automatic compatibility fallback. The original complex shader is retained at `?legacy=1` for experimental use. If your browser cached the old version, force a fresh reload (Ctrl+F5), or add `?quality=low` before the `#seed=` fragment. A full Edge / RTX 3060 playtest is still needed; local shader validation does not prove performance on every driver.
+MIT licensed. **The sky has no end. The storm does.**
