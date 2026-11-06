@@ -207,7 +207,6 @@
 
 <script src="core.js"></script>
 <script src="fast-shader.js"></script>
-<script src="play.js"></script>
 <script>
 'use strict';
 /* Do not hype. Do not lie. Just show. */
@@ -1412,3 +1411,4 @@ window.dreamTick=setInterval(()=>{
 $('bootStat').textContent='dreaming the shader… (first launch only — cached after)';
 requestAnimationFrame(()=>{try{compileAndStart();}catch(e){bootErr(e&&e.stack||e);}});
 </script>
+<script src="play.js"></script>
