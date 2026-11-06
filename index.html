@@ -206,6 +206,7 @@
 <video id="vid" style="display:none" playsinline muted></video>
 
 <script src="core.js"></script>
+<script src="fast-shader.js"></script>
 <script src="play.js"></script>
 <script>
 'use strict';
@@ -1193,7 +1194,7 @@ let prog=null,U={};
 function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);
   gl.compileShader(s);return s;}
 function compileAndStart(){
-  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,location.search.includes("ci=1")?FRAG_CI:FRAG);
+  const vs=sh(gl.VERTEX_SHADER,VERT), fs=sh(gl.FRAGMENT_SHADER,location.search.includes("ci=1")?FRAG_CI:(location.search.includes("legacy=1")?FRAG:window.SKY_FAST_FRAGMENT));
   prog=gl.createProgram();
   gl.attachShader(prog,vs);gl.attachShader(prog,fs);
   gl.linkProgram(prog);
