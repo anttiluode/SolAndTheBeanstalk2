@@ -30,7 +30,8 @@ The world seed is in the URL fragment (#seed=NUMBER); each seed has a separate l
 
 ## The technology
 
-- **index.html:** PsychedelicGarden-derived shader, with real-time raymarching, shiny moons, chained vines, cosine palettes, crystal seam variation, near-miss glow, screen-shake, FOV kick, guided seed-trail glow and strain-dependent visual changes.
+- **index.html:** Keeps the original PsychedelicGarden crystal engine (available with `?legacy=1`) and the game camera/geometry logic. Normal startup now uses `fast-shader.js`, a far cheaper raymarcher with organic cave walls, crystals, chains, instant vine helixes, stress glow, atmospheric fog and colour palettes. Shader errors automatically fall back to a minimal compatibility renderer and are shown visibly rather than leaving the start button frozen.
+- **fast-shader.js:** Default renderer; compiled and linked successfully with OpenGL ES 3.2 Mesa. It reduces the heavy multipass reflections for reliability.
 - **core.js:** Pure, deterministic gameplay. Shoot/root/cross, four-room graph, warning/overload thresholds, recoverable snaps, root inventory, endings and save validation.
 - **play.js:** Story UI, keyboard and touch input, drone whose frequency decreases as the pin loads, original pentatonic chimes, screenshot and sharing controls.
 - **play.css:** Responsive HUD showing a load that matters.
@@ -56,3 +57,7 @@ The full raymarcher is computationally demanding; frame rate varies by GPU. This
 **Find what carries the load.**
 
 **Validation status (Nov 5):** All six gameplay rules and the embedded JavaScript syntax pass local checks. The full PsychedelicGarden-derived shader could not be fully playtested here: the local browser blocks URL loading, and software-rendered CI runs were excessively slow. Normal GPU visual performance remains unverified until a real browser/hardware playtest.
+
+## Startup fix (November 6, 2026)
+
+The first published version could remain on **PREPARING CRYSTAL WORLD…** because the original multi-bounce shader took excessively long to compile on some drivers. The ordinary page now loads a smaller WebGL2 raymarcher by default, with a 7-second asynchronous compile watchdog and automatic compatibility fallback. The original complex shader is retained at `?legacy=1` for experimental use. If your browser cached the old version, force a fresh reload (Ctrl+F5), or add `?quality=low` before the `#seed=` fragment. A full Edge / RTX 3060 playtest is still needed; local shader validation does not prove performance on every driver.
