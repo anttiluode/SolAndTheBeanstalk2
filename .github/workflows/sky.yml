@@ -1,89 +1,77 @@
-name: Validate the living sky
+name: Validate and publish Storm Climber
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
-  pages: write
-  id-token: write
 concurrency:
-  group: sky-2-check
+  group: sky-2-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax and state-machine tests
+      - name: Syntax and deterministic gameplay tests
         run: |
-          node --check core.js
-          node --check play.js
-          node --check fast-shader.js
-          node --test tests/core.test.cjs tests/startup.test.cjs
-      - name: Check embedded renderer script syntax
-        run: |
-          node -e 'const fs=require("node:fs");const h=fs.readFileSync("index.html","utf8");const m=h.match(/<script>([\s\S]*?)<\/script>/);if(!m)throw Error("inline renderer missing");new Function(m[1]);console.log("Embedded renderer JavaScript parses.");'
-      - name: Package portable game before rendering tests
+          for file in core.js play.js fast-shader.js climb-core.js climb-render.js climb.js; do node --check "$file"; done
+          node --test tests/core.test.cjs tests/startup.test.cjs tests/climb.test.cjs
+          node -e 'const h=require("node:fs").readFileSync("story.html","utf8");new Function(h.match(/<script>([\s\S]*?)<\/script>/)[1]);'
+      - name: Install browser test driver
+        run: npm install --no-save --no-package-lock playwright@1.56.1
+      - name: Play the production WebGL build
+        env:
+          CHROME_BIN: /usr/bin/google-chrome
+        run: node tests/climb-browser.cjs
+      - name: Save real-renderer screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sky-2-local-build
+          name: storm-climber-browser
+          path: .artifacts/*.png
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+      - name: Package portable game
+        uses: actions/upload-artifact@v4
+        with:
+          name: storm-climber-portable
           path: |
             index.html
+            climb-core.js
+            climb-render.js
+            climb.js
+            climb.css
+            story.html
             core.js
             play.js
             play.css
             fast-shader.js
-            tests/browser.test.cjs
-          retention-days: 7
-  browser:
-    if: github.event_name == 'workflow_dispatch'
-    needs: verify
-    runs-on: ubuntu-latest
-    timeout-minutes: 3
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Install browser driver
-        run: npm install --no-save --no-package-lock playwright-core
-      - name: Browser integration test (CI-only lightweight shader)
-        run: node tests/browser.test.cjs
-      - name: Save browser screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sky-2-browser-shots
-          path: |
-            beanstalk2-title.png
-            beanstalk2-first-vine.png
-            beanstalk2-strained-pin.png
-            beanstalk2-keeper.png
-          if-no-files-found: ignore
-          retention-days: 7
+            README.md
+            LICENSE
+          retention-days: 14
   publish:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - id: setup
-        uses: actions/configure-pages@v5
-        continue-on-error: true
-      - name: Pages activation notice
-        if: steps.setup.outcome != 'success'
-        run: echo "::warning title=GitHub Pages not enabled::In this repo's Settings > Pages choose GitHub Actions as the deployment source."
+      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
-        if: steps.setup.outcome == 'success'
         with:
           path: .
       - uses: actions/deploy-pages@v4
         id: deployment
-        if: steps.setup.outcome == 'success'

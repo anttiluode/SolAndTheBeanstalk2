@@ -1,6 +1,6 @@
 "use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs");
-const html=fs.readFileSync("index.html","utf8");
+const html=fs.readFileSync("story.html","utf8");
 test("startup controllers load after engine creation, never before",()=>{
  const engine=html.indexOf("window.SkyEngine={");
  const play=html.indexOf('<script src="play.js"></script>');
