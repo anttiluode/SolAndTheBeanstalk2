@@ -52,3 +52,21 @@ test('persisted records reject invalid or nonfinite data',()=>{
  assert.deepEqual(C.validateRecord({score:NaN,height:-2,runs:'x'}),{score:0,height:0,runs:0});
  assert.deepEqual(C.validateRecord({score:500,height:120,runs:3}),{score:500,height:120,runs:3});
 });
+test('a physical traversal policy reaches sixty islands across four seeds without teleporting',()=>{
+ for(const seed of [1,42,152734,4294967295]){
+  const s=C.create(seed);let held=false,released=false;
+  for(let k=0;k<120*160&&s.progress<60&&s.mode!=='dead';k++){
+   if(s.mode==='upgrade')C.chooseUpgrade(s,s.offers.includes('calm')?'calm':s.offers[0]);
+   const p=s.player,dest=C.platform(seed,s.progress+1),a=C.position(dest,s.time);
+   const dx=a.x-p.x,dz=a.z-p.z,d=Math.hypot(dx,dz);
+   const input={x:dx/Math.max(d,1),z:dz/Math.max(d,1)};
+   if(p.ground!==null){held=true;released=false;}
+   if(s.rope){const r=s.platforms.get(s.rope.id),at=C.position(r,s.time);
+    if(Math.hypot(p.x-at.x,p.z-at.z)<.8&&p.y>r.y+1){held=false;released=true;}}
+   if(released&&p.ground===null){input.x=dx*1.2;input.z=dz*1.2;}
+   input.grapple=held;C.step(s,input,1/120);
+  }
+  assert.equal(s.progress,60,'reachable route for seed '+seed);
+  assert.notEqual(s.mode,'dead');assert.ok(s.platforms.size<=50);
+ }
+});
